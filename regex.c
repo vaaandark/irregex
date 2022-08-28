@@ -5,43 +5,11 @@
 #include <assert.h>
 #include <ctype.h>
 
-// draw NFA's graph
-#define GENERATE_GRAPH
-#undef GENERATE_GRAPH
+#define DRAW_NFA
+//#undef DRAW_NFA
 
-#ifdef GENERATE_GRAPH
-
-#define MAXEDGENUM 128
-int nedges;
-char *(edges)[MAXEDGENUM][3];
-
-static void push_edge(char *from, char *to, char *label) {
-    edges[nedges][0] = from;
-    edges[nedges][1] = to;
-    edges[nedges][2] = label;
-    nedges++;
-}
-
-static void draw_graph() {
-    printf("digraph NFA_Graph {\n");
-    for (int i = 0; i < nedges; ++i) {
-        printf("    %s->%s [label=\"%s\"];\n", edges[i][0], edges[i][1], \
-                edges[i][2]);
-    }
-    printf("}\n");
-}
-
-#define push_edge(from, to, label) \
-    push_edge(from, to, label)
-#define draw_graph() \
-    draw_graph()
-#else
-#define push_edge(from, to, label) 0
-#define draw_graph() 0
-#endif /* GENERATE_GRAPH */
-
-#ifdef GENERATE_GRAPH
-#endif
+#define DRAW_RELATIONSHIP
+//#undef DRAW_RELATIONSHIP
 
 #define unimplemented(msg) \
     do { \
@@ -94,13 +62,15 @@ typedef struct {
     RE_Token *unget;
 } RE_State;
 
-static void RES_init(RE_State *st, char *str) {
+static RE_State *RES_init(char *str) {
+    RE_State *st = (RE_State *)alloc(sizeof(RE_State));
     if (!st) {
         panic("RE_State is empty");
     }
     strcpy(st->regstr, str);
     st->str_read_pos = str;
     st->unget = NULL;
+    return st;
 }
 
 #define meta_chars "^$*+?{}()|"
@@ -117,23 +87,23 @@ typedef struct {
 
 typedef struct {
     RE_Atom *a;
-    unsigned int min, max; // bound
+    int min, max; // bound
 } RE_Piece;
 
 #define BRANCH_INITIAL_SIZE 4
 
 typedef struct {
     RE_Piece **p;
-    unsigned int num;
-    unsigned int size;
+    int num;
+    int size;
 } RE_Branch;
 
 #define RE_INITIAL_SIZE 8
 
 typedef struct RE_Node {
     RE_Branch **b;
-    unsigned int num;
-    unsigned int size;
+    int num;
+    int size;
 } RE_Node;
 
 static RE_Token *Token_new(void) {
@@ -316,6 +286,7 @@ static RE_Token *get_token_charset(RE_State *st) {
     }
 
     while (*st->str_read_pos != ']') {
+//    NFANode_drop(&b->begin);
         switch (*st->str_read_pos) {
         case '\0':
             panic("bracket should end with ']'");
@@ -387,6 +358,7 @@ static RE_Token *get_token_charset(RE_State *st) {
                 panic("character class should be ended with \":\"");
             }
             st->str_read_pos += 2;
+            break;
         default:
 not_special:
             res->u.ch[(int)*st->str_read_pos] = fill;
@@ -627,21 +599,11 @@ RE_Node *parse_regex(RE_State *st) {
     return res;
 }
 
-static void Token_drop(RE_Token *self) {
-    if (!self) {
-        panic("drop error");
-    }
-    free(self);
-}
-
-#define draw_relationship
-//#undef draw_relationship
-
-#ifdef draw_relationship
+#ifdef DRAW_RELATIONSHIP
 
 #define last8bit(ptr) ((unsigned int)(unsigned long)ptr & 0xff)
 
-#define CHARSET_SHOW_MAX 10
+#define CHARSET_SHOW_MAX 16
 void draw_charset(FILE *f, RE_Atom *a) {
     assert(a->is_simple_atom);
     fprintf(f, "    cs%p [label=\"", a);
@@ -707,31 +669,277 @@ void draw_re(FILE *f, RE_Node *re) {
     }
 }
 
+static void draw_relationship(FILE *f, RE_Node *re, char *regexp) {
+    fprintf(f, "digraph Regex_Relationship {\n");
+    fprintf(f, "    label=\"regexp = %s\"", regexp);
+    fprintf(f, "    labelloc=top;\n");
+    fprintf(f, "    labeljust=left;\n");
+    draw_re(f, re);
+    fprintf(f, "}\n");
+}
+
+#endif
+
+typedef struct NFANode NFANode;
+
+typedef struct {
+    bool is_epsilon;
+    bool ch[256];
+    NFANode *next;
+} NFAEdge;
+
+#define NFANODE_EDGE_INITIAL_SIZE 4
+
+typedef struct NFANode {
+    bool is_begin;
+    bool is_end;
+    int nedges;
+    int edge_size;
+    NFAEdge **nexts;
+#ifdef DRAW_NFA
+    bool visited; // DFS
+#endif
+} NFANode;
+
+typedef struct {
+    NFANode *begin;
+    NFANode *end;
+} NFAGraph;
+
+NFAEdge *NFAEdge_new(void) {
+    NFAEdge *e = (NFAEdge *)alloc(sizeof(NFAEdge));
+    fill_by_range(0, 255, e->ch, false);
+    e->is_epsilon = false;
+    e->next = NULL;
+    return e;
+}
+
+NFANode *NFANode_nnew(int edge_size) {
+    edge_size = edge_size > NFANODE_EDGE_INITIAL_SIZE ? \
+                edge_size : NFANODE_EDGE_INITIAL_SIZE;
+    NFANode *n = (NFANode *)alloc(sizeof(NFANode));
+    n->is_begin = false;
+    n->is_end = false;
+    n->edge_size = edge_size;
+    n->nedges = 0;
+    n->nexts = (NFAEdge **)RE_calloc(n->edge_size, sizeof(NFAEdge *));
+
+#ifdef DRAW_NFA
+    n->visited = false;
+#endif
+
+    return n;
+}
+
+#define NFANode_new() \
+    NFANode_nnew(NFANODE_EDGE_INITIAL_SIZE)
+
+void NFANode_resize(NFANode *n) {
+    n->edge_size = n->edge_size * 2 + 4;
+    n->nexts = (NFAEdge **)RE_realloc(n->nexts, n->edge_size, sizeof(NFAEdge *));
+}
+
+NFAGraph NFAGraph_new(void) {
+    NFAGraph st = {
+        .begin = NULL,
+        .end = NULL
+    };
+    return st;
+}
+
+NFAGraph NFA_cat(NFAGraph *a, NFAGraph *b) {
+    NFANode *end = b->end;
+    *a->end = *b->begin;
+
+    // if use epsilon to connect, the graph will be too big
+//    NFANode *end = a->end;
+//    end->is_end = false;
+//    NFAEdge *e = (end->nexts[end->nedges++] = NFAEdge_new());
+//    e->next = b->begin;
+//    e->is_epsilon = true;
+    NFAGraph g = {
+        .begin = a->begin,
+        .end = end
+    };
+    return g;
+}
+
+NFAGraph NFA_or(NFAGraph *subgraphs, int ngraphs) {
+    if (ngraphs == 1) {
+        return subgraphs[0];
+    }
+    NFANode *begin = NFANode_nnew(ngraphs);
+    begin->is_begin = true;
+    NFANode *end = NFANode_new();
+    end->is_end = true;
+    for (int i = 0; i < ngraphs; ++i) {
+        NFAEdge *e = (begin->nexts[begin->nedges++] = NFAEdge_new());
+        e->is_epsilon = true;
+        e->next = subgraphs[i].begin;
+
+        NFANode *n = subgraphs[i].end;
+        n->is_end = false;
+        e = (n->nexts[n->nedges++] = NFAEdge_new()); 
+        e->is_epsilon = true;
+        e->next = end;
+    }
+
+    NFAGraph g = {
+        .begin = begin,
+        .end = end
+    };
+    return g;
+}
+
+NFAGraph NFA_atom2NFA(RE_Atom *a) {
+    NFAGraph g = NFAGraph_new();
+    extern NFAGraph NFA_re2NFA(RE_Node *re);
+    if (a->is_simple_atom) {
+        NFANode *begin = NFANode_new();
+        begin->is_begin = true;
+        NFAEdge *e = (begin->nexts[begin->nedges++] = NFAEdge_new());
+        NFANode *end = NFANode_new();
+        end->is_end = true;
+        e->next = end;
+        memcpy(e->ch, a->u.ch, sizeof(e->ch));
+        g.begin = begin;
+        g.end = end;
+    } else {
+        g = NFA_re2NFA(a->u.re);
+    }
+    return g;
+}
+
+NFAGraph NFA_piece2NFA(RE_Piece *p) {
+    NFAGraph g = NFAGraph_new();
+    if (p->max == 1 && p->min == 1) {
+        g = NFA_atom2NFA(p->a);
+    } else {
+        unimplemented("matchint times only support {1}");
+    }
+    return g;
+}
+
+NFAGraph NFA_branch2NFA(RE_Branch *b) {
+    NFAGraph g = NFA_piece2NFA(b->p[0]);
+    for (int i = 1; i < b->num; ++i) {
+        NFAGraph ng = NFA_piece2NFA(b->p[i]);
+        g = NFA_cat(&g, &ng);
+    }
+    return g;
+}
+
+NFAGraph NFA_re2NFA(RE_Node *n) {
+    NFAGraph *subgraphs = (NFAGraph *)RE_calloc(n->num, sizeof(NFAGraph));
+    for (int i = 0; i < n->num; ++i) {
+        subgraphs[i] = NFA_branch2NFA(n->b[i]);
+    }
+    NFAGraph g = NFA_or(subgraphs, n->num);
+    return g;
+}
+
+NFAGraph regex2NFA(RE_Node *re) {
+    NFAGraph g = NFAGraph_new();
+    g = NFA_re2NFA(re);
+    return g;
+}
+
+#ifdef DRAW_NFA
+
+#define MAXEDGENUM 128
+int nedges;
+unsigned int edges[MAXEDGENUM][3];
+
+static void push_edge(unsigned int from, unsigned int to, unsigned int label) {
+    edges[nedges][0] = from;
+    edges[nedges][1] = to;
+    edges[nedges][2] = label;
+    nedges++;
+}
+
+#define last12bit(ptr) ((unsigned int)(unsigned long)(ptr) & 0xfff)
+
+static void draw_NFANode(FILE *f, NFANode *n) {
+    if (n == NULL || n->is_end || n->visited) {
+        return;
+    }
+
+    n->visited = true;
+    for (int j = 0; j < n->nedges; ++j) {
+        NFAEdge *e = n->nexts[j];
+        fprintf(f, "    s_%x->s_%x [label=\"", last12bit(n), \
+                last12bit(e->next));
+        if (e->is_epsilon) {
+            fprintf(f, "ε\"];\n");
+        } else {
+            bool is_end = true;
+            int cnt = 0;
+            for (int i = 0; i < 256; ++i) {
+                if (e->ch[i]) {
+                    if (isgraph(i)) {
+                        if (strchr("\"", i)) {
+                            fprintf(f, "%c", '\\');
+                        }
+                        fprintf(f, "%c", i);
+                        cnt++;
+                        if (cnt > CHARSET_SHOW_MAX) {
+                            break;
+                        }
+                    } else {
+                        is_end = false;
+                    }
+                }
+            }
+            if (!is_end) {
+                fprintf(f, "...");
+            }
+            fprintf(f, "\"];\n");
+        }
+
+        draw_NFANode(f, e->next);
+    }
+}
+
+static void draw_NFA(FILE *f, NFAGraph *g, char *regexp) {
+    fprintf(f, "digraph NFA_Graph {\n");
+    fprintf(f, "    label=\"regexp = %s\"", regexp);
+    fprintf(f, "    labelloc=top;\n");
+    fprintf(f, "    labeljust=left;\n");
+    fprintf(f, "    s_%x [shape=doublecircle]\n", last12bit(g->end));
+    fprintf(f, "    s_start [style=invis]\n");
+    fprintf(f, "    s_start->s_%x [label=\"start\"]\n", last12bit(g->begin));
+    draw_NFANode(f, g->begin);
+    fprintf(f, "}\n");
+}
 #endif
 
 int main(int argc, char *argv[]) {
     assert(argc == 2);
     char *regex = argv[1];
-    RE_State st;
-    RES_init(&st, argv[1]);
-    RE_Node *res = parse_regex(&st);
+    RE_State *st = RES_init(argv[1]);
+    RE_Node *re = parse_regex(st);
 
-#ifdef draw_relationship
-    puts("generate .dot file...");
+#ifdef DRAW_RELATIONSHIP
+    puts("generate .dot file for relationship...");
     FILE *f = fopen("./relationship.dot", "w");
-    fprintf(f, "digraph Regex_Relationship {\n");
-    fprintf(f, "    label=\"regexp = %s\"", argv[1]);
-    fprintf(f, "    labelloc=top;\n");
-    fprintf(f, "    labeljust=left;\n");
-    draw_re(f, res);
-    fprintf(f, "}\n");
+    draw_relationship(f, re, argv[1]);
     fclose(f);
     puts("OK");
     puts(".dot file is saved at ./relationship.dot");
+    puts("");
 #endif
 
-    // TODO NFA
-    push_edge("a", "b", "first edge");
-    draw_graph();
+    NFAGraph g = NFA_re2NFA(re);
+#ifdef DRAW_NFA
+    puts("generate .dot file for NFA...");
+    f = fopen("./NFA.dot", "w");
+    draw_NFA(f, &g, argv[1]);
+    fclose(f);
+    puts("OK");
+    puts(".dot file is saved at ./NFA.dot");
+    puts("");
+#endif
+
+    free(st);
     return 0;
 }
