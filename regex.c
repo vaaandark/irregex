@@ -13,18 +13,35 @@
 
 #define unimplemented(msg) \
     do { \
-        fprintf(stderr, "unimplemented@%d: %s\n", __LINE__, msg); \
+        fprintf(stderr, "unimplemented@%s(%d): %s\n", __FILE__, __LINE__, msg); \
         abort(); \
     } while (0)
 
 #define panic(msg) \
     do { \
-        fprintf(stderr, "panic@%d: %s\n", __LINE__, msg); \
+        fprintf(stderr, "panic@%s(%d): %s\n", __FILE__, __LINE__, msg); \
         abort(); \
     } while (0)
 
+struct {
+    void *p[1024];
+    int num;
+} cleaner = {
+    .num = 0
+};
+
+#define cleaner_do \
+    for (int i = 0; i < cleaner.num; ++i) { \
+        free(cleaner.p[i]); \
+    } \
+    cleaner.num = 0;
+
+#define cleaner_add(ptr) \
+    cleaner.p[cleaner.num++] = ptr;
+
 static void *RE_calloc(size_t nitems, size_t size) {
     void *mem = calloc(nitems, size);
+    cleaner_add(mem);
     if (!mem) {
         panic("memory alloction error");
     }
@@ -32,10 +49,13 @@ static void *RE_calloc(size_t nitems, size_t size) {
 }
 
 static void *RE_realloc(void *ptr, size_t nitems, size_t size) {
-    void *mem = realloc(ptr, nitems * size);
+//    void *mem = realloc(ptr, nitems * size);
+    void *mem = malloc(sizeof(nitems * size));
+    memcpy(mem, ptr, nitems * size);
     if (!mem) {
         panic("memory alloction error");
     }
+    cleaner_add(mem);
     return mem;
 }
 
@@ -512,7 +532,7 @@ static RE_Atom *parse_atom(RE_State *st) {
 }
 
 static RE_Piece *parse_piece(RE_State *st) {
-    RE_Piece *res = malloc(sizeof(RE_Piece));
+    RE_Piece *res = alloc(sizeof(RE_Piece));
     res->a = parse_atom(st);
     res->min = 1;
     res->max = 1;
@@ -940,6 +960,6 @@ int main(int argc, char *argv[]) {
     puts("");
 #endif
 
-    free(st);
+    cleaner_do;
     return 0;
 }
