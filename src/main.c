@@ -7,7 +7,7 @@ int main(int argc, char *argv[]) {
     RES_drop(st);
 
 #ifdef DRAW_RELATIONSHIP
-    puts("generate .dot file for relationship...");
+    puts("\033[1;032mregex:\033[0m generate .dot file for relationship...");
     FILE *f = fopen("./relationship.dot", "w");
     draw_relationship(f, re, argv[1]);
     fclose(f);
@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef DRAW_NFA
     NFAGraph g = regex2NFA(re);
-    puts("generate .dot file for NFA...");
+    puts("\033[1;032mregex:\033[0m generate .dot file for NFA...");
     f = fopen("./NFA.dot", "w");
     draw_NFA(f, &g, argv[1]);
     fclose(f);

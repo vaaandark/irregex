@@ -24,6 +24,7 @@ $ ./build.sh
 
 ```console
 $ ./scripts/draw.sh {regexp}
+$ for p in ./build/*.svg; do xdg-open $p; done
 ```
 
 可以查看`./build/relationship.svg`文件，它包含了正则表达式编译的中间结果。

@@ -69,23 +69,13 @@ static NFAGraph NFA_or(NFAGraph *subgraphs, int ngraphs) {
         return subgraphs[0];
     }
     NFANode *begin = NFANode_nnew(ngraphs);
-//    NFANode *end = NFANode_nnew(ngraphs);
     NFANode *end = NFANode_new();
     end->is_end = true;
     for (int i = 0; i < ngraphs; ++i) {
         NFA_merge(begin, subgraphs[i].begin);
-//        NFAEdge *e = (begin->u.edges[begin->num++] = NFAEdge_new());
-//        e->is_epsilon = true;
-//        e->next = subgraphs[i].begin;
 
         NFANode *subend = subgraphs[i].end;
         NFA_merge(end, subgraphs[i].end);
-//        NFANode *n = subgraphs[i].end;
-//        n->is_end = false;
-//        n->num = 0;
-//        NFAEdge *e = (n->u.edges[n->num++] = NFAEdge_new()); 
-//        e->is_epsilon = true;
-//        e->next = end;
     }
 
     for (int j = 0; j < end->num; ++j) {
