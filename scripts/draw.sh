@@ -9,7 +9,7 @@ regexp=$1
 
 (
   cd "$(dirname "$0")" || exit 1
-  cd ./build/ || exit 1
+  cd ../build/ || exit 1
   ./regex "$regexp"
   dot -Tsvg relationship.dot -o relationship.svg
   dot -Tsvg NFA.dot -o NFA.svg

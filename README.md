@@ -23,7 +23,7 @@ $ ./build.sh
 ## 使用
 
 ```console
-$ ./test.sh {regexp}
+$ ./scripts/draw.sh {regexp}
 ```
 
 可以查看`./build/relationship.svg`文件，它包含了正则表达式编译的中间结果。
@@ -34,7 +34,7 @@ $ ./test.sh {regexp}
 
 上述名词的含义可以通过`man 7 regex`查询。
 
-可以查看`./build/NFA.svg`文件，它包含了正则表达式编译出来的 NFA 图示。
+可以查看`./build/NFA.svg`文件，它包含了正则表达式编译出来的 NFA 图示（不含 ε ）。
 
 ![regex-example](./images/NFA.svg)
 
@@ -42,7 +42,9 @@ $ ./test.sh {regexp}
 
 ~~疯狂内存泄漏，暂时懒得管了。~~
 
-现在使用了很丑陋的方式解决了内存泄漏问题。
+~~现在使用了很丑陋的方式解决了内存泄漏问题。~~
+
+现在正着手处理内存泄漏问题，还有点漏...
 
 ## 文档编写中...
 
