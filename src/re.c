@@ -18,7 +18,7 @@ void *RE_realloc(void *ptr, size_t nitems, size_t size) {
 
 const char *meta_chars="^$*+?{}()|";
 
-RE_State *RES_init(char *str) {
+RE_State *RES_new(char *str) {
     RE_State *st = (RE_State *)alloc(sizeof(RE_State));
     if (!st) {
         panic("RE_State is empty");
@@ -571,10 +571,12 @@ static void draw_atom(FILE *f, RE_Atom *a) {
 
 static void draw_piece(FILE *f, RE_Piece *p) {
     fprintf(f, "    p%p [label=\"pi_%x\" style=dashed];\n", p, last8bit(p));
-    if (p->max == -1) {
-        fprintf(f, "    a%p->p%p [label=\"%d-%s\"];\n", p->a, p, p->min, "inf");
+    if (p->max == p->min) {
+        fprintf(f, "    a%p->p%p [label=\"%d\"];\n", p->a, p, p->min);
+    } else if (p->max == -1 ){
+        fprintf(f, "    a%p->p%p [label=\"%d - %s\"];\n", p->a, p, p->min, "inf");
     } else {
-        fprintf(f, "    a%p->p%p [label=\"%d-%d\"];\n", p->a, p, p->min, p->max);
+        fprintf(f, "    a%p->p%p [label=\"%d - %d\"];\n", p->a, p, p->min, p->max);
     }
     draw_atom(f, p->a);
 }

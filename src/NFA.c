@@ -1,12 +1,6 @@
 #include "NFA.h"
 
-static NFAEdge *NFAEdge_new(void) {
-    NFAEdge *e = (NFAEdge *)alloc(sizeof(NFAEdge));
-    fill_by_range(0, 255, e->ch, false);
-    e->is_epsilon = false;
-    e->next = NULL;
-    return e;
-}
+#define NFANODE_INITIAL_SIZE 64
 
 static NFANode *NFANode_nnew(int size) {
     size = size > NFANODE_EDGE_INITIAL_SIZE ? \
@@ -15,101 +9,213 @@ static NFANode *NFANode_nnew(int size) {
     n->is_end = false;
     n->size = size;
     n->num = 0;
-    n->u.edges = (NFAEdge **)RE_calloc(n->size, sizeof(NFAEdge *));
+    n->edges = (NFAEdge *)RE_calloc(n->size, sizeof(NFAEdge));
 
 #ifdef DRAW_NFA
-    n->visited = false;
+    n->visited_on_draw = false;
 #endif
 
     return n;
 }
 
-#define NFANode_new() \
-    NFANode_nnew(NFANODE_EDGE_INITIAL_SIZE)
+NFANode *NFANode_new(void) {
+    return NFANode_nnew(NFANODE_EDGE_INITIAL_SIZE);
+}
 
 static void NFANode_resize(NFANode *n) {
     n->size = n->size * 2 + 4;
-    n->u.edges = RE_realloc(n->u.edges, n->size, sizeof(NFAEdge *));
+    n->edges = (NFAEdge *)RE_realloc(n->edges, n->size, sizeof(NFAEdge));
 }
 
-NFAGraph NFAGraph_new(void) {
-    NFAGraph st = {
-        .begin = NULL,
-        .end = NULL
-    };
-    return st;
+#define NFAEdge_drop(e) free(e)
+
+void NFANode_drop(NFANode *n) {
+    if (n->edges != NULL && n->size != 0) {
+        free(n->edges);
+    }
+    free(n);
 }
 
-static NFAGraph NFA_cat(NFAGraph *a, NFAGraph *b) {
-    NFANode *end = b->end;
-    *a->end = *b->begin;
-
+#define NFAGRAPH_INITIAL_SIZE 256
+NFAGraph NFAGraph_nnew(int size) {
     NFAGraph g = {
-        .begin = a->begin,
-        .end = end
+        .begin = NULL,
+        .end = NULL,
+        .size = size,
+        .nodes = (NFANode **)RE_calloc(size, sizeof(NFANode *)),
+        .num = 0
     };
     return g;
 }
 
-static void NFA_merge(NFANode *dst, NFANode *src) {
+NFAGraph NFAGraph_new(void) {
+    return NFAGraph_nnew(NFAGRAPH_INITIAL_SIZE);
+}
+
+void NFAGraph_clear(NFAGraph *g) {
+    for (int i = 0; i < g->num; ++i) {
+        NFANode_drop(g->nodes[i]);
+    }
+    g->num = 0;
+}
+
+// after calling this, NFAGraph's nodes, num, size are invalid
+void NFAGraph_drop(NFAGraph *g) {
+    g->num = g->size = 0;
+    free(g->nodes);
+    g->nodes = NULL;
+}
+
+static void NFAGraph_resize(NFAGraph *g) {
+    g->size = g->size * 2 + 4;
+    g->nodes = (NFANode **)RE_realloc(g->nodes, g->size, sizeof(NFANode *));
+}
+
+static void NFAGraph_add_node(NFAGraph *g, NFANode *n) {
+    if (g->num == g->size) {
+        NFAGraph_resize(g);
+    }
+    g->nodes[g->num] = n;
+    n->id = g->num;
+    g->num++;
+}
+
+static void NFAGraph_add_node_when_cloning(NFAGraph *g, NFANode *n) {
+    g->nodes[n->id] = n;
+}
+
+static void NFANode_add_epsilon_edge(NFANode *from, NFANode *to) {
+    if (from->num == from->size) {
+        NFANode_resize(from);
+    }
+    from->edges[from->num].is_epsilon = true;
+    from->edges[from->num++].next = to;
+}
+
+static void NFANode_add_charset_edge(NFANode *from, NFANode *to, bool *ch) {
+    if (from->num == from->size) {
+        NFANode_resize(from);
+    }
+    from->edges[from->num].is_epsilon = false;
+    memcpy(from->edges[from->num].ch, ch, 256);
+    from->edges[from->num++].next = to;
+}
+
+static NFANode *NFANode_clone(NFANode *n) {
+    NFANode *nn = NFANode_nnew(n->size);
+    nn->id = n->id;
+    nn->is_end = n->is_end;
+    return nn;
+}
+
+static void NFAGraph_deep_clone(NFAGraph *g, NFANode *n, bool *visited) {
+    if (visited[n->id]) {
+        return;
+    }
+    visited[n->id] = true;
+
+    NFANode *nn = NFANode_clone(n);
+    g->nodes[n->id] = nn;
+
+    NFAGraph_add_node_when_cloning(g, nn);
+
+    if (n->is_end) {
+        g->end = nn;
+    }
+    for (int i = 0; i < n->num; ++i) {
+        NFAEdge *e = &n->edges[i];
+        NFANode *next;
+        if (!visited[e->next->id]) { // need to alloc
+            NFAGraph_deep_clone(g, e->next, visited);
+        }
+        next = g->nodes[e->next->id];
+        if (e->is_epsilon) {
+            NFANode_add_epsilon_edge(nn, next);
+        } else {
+            NFANode_add_charset_edge(nn, next, e->ch);
+        }
+    }
+}
+
+NFAGraph NFAGraph_clone(NFAGraph *g) {
+    bool *visited = RE_calloc(g->num, sizeof(bool));
+    NFAGraph ng = {
+        .nodes = (NFANode **)RE_calloc(g->size, sizeof(NFANode *)),
+        .size = g->size,
+        .num = g->num,
+    };
+    NFAGraph_deep_clone(&ng, g->begin, visited);
+    ng.begin = ng.nodes[0];
+    free(visited);
+    return ng;
+}
+
+// drop src when calling this func
+static void NFAGraph_merge(NFAGraph *dst, NFAGraph *src) {
     int nd = dst->num;
     int ns = src->num;
-    if (nd + ns >= dst->size) {
-        dst->size = nd + ns + 4;
-        dst->u.edges = (NFAEdge **)RE_realloc(dst->u.edges, dst->size, sizeof(NFAEdge *));
+    if (nd + ns > dst->size) {
+        dst->size = (dst->num + src->num) * 2 + 4;
+        dst->nodes = (NFANode **)RE_realloc(dst->nodes, dst->size, \
+                sizeof(NFANode *));
     }
     for (int i = nd, j = 0; j < ns; ++i, ++j) {
-        dst->u.edges[i] = src->u.edges[j];
+        dst->nodes[i] = src->nodes[j];
+        dst->nodes[i]->id = i;
     }
     dst->num = nd + ns;
+    NFAGraph_drop(src);
+}
+
+#define not_end_any_longer(n) \
+    n->is_end = false;
+
+#define set_end(n) \
+    n->is_end = true
+
+static NFAGraph NFA_cat(NFAGraph *front, NFAGraph *back) {
+    not_end_any_longer(front->end);
+    NFANode_add_epsilon_edge(front->end, back->begin);
+    front->end = back->end;
+    NFAGraph_merge(front, back);
+    return *front;
 }
 
 static NFAGraph NFA_or(NFAGraph *subgraphs, int ngraphs) {
     if (ngraphs == 1) {
         return subgraphs[0];
     }
+
+    NFAGraph g = NFAGraph_new();
+
     NFANode *begin = NFANode_nnew(ngraphs);
-    NFANode *end = NFANode_new();
-    end->is_end = true;
+    NFANode *end = NFANode_nnew(ngraphs);
+    NFAGraph_add_node(&g, begin);
+    NFAGraph_add_node(&g, end);
+    set_end(end);
     for (int i = 0; i < ngraphs; ++i) {
-        NFA_merge(begin, subgraphs[i].begin);
-
-        NFANode *subend = subgraphs[i].end;
-        NFA_merge(end, subgraphs[i].end);
+        NFANode_add_epsilon_edge(begin, subgraphs[i].begin);
+        not_end_any_longer(subgraphs[i].end);
+        NFANode_add_epsilon_edge(subgraphs[i].end, end);
+        NFAGraph_merge(&g, &subgraphs[i]);
     }
 
-    for (int j = 0; j < end->num; ++j) {
-        NFANode *back = end->u.backs[j];
-        bool *ch = back->u.edges[0]->ch;
-        for (int i = 0; i < 256; ++i) {
-            if (ch[i])
-                putchar(i);
-        }
-        for (int k = 0; k < back->num; ++k) {
-            if (back->u.edges[k]->next->is_end) {
-                back->u.edges[k]->next = end;
-            }
-        }
-    }
-
-    NFAGraph g = {
-        .begin = begin,
-        .end = end
-    };
+    g.begin = begin;
+    g.end = end;
     return g;
 }
 
-static NFAGraph NFA_re2NFA(RE_Node *);
+extern NFAGraph NFA_re2NFA(RE_Node *);
 static NFAGraph NFA_atom2NFA(RE_Atom *a) {
-    NFAGraph g = NFAGraph_new();
+    NFAGraph g;
     if (a->is_simple_atom) {
+        g = NFAGraph_new();
         NFANode *begin = NFANode_new();
-        NFAEdge *e = (begin->u.edges[begin->num++] = NFAEdge_new());
         NFANode *end = NFANode_new();
-        end->is_end = true;
-        e->next = end;
-        end->u.backs[end->num++] = begin;
-        memcpy(e->ch, a->u.ch, sizeof(e->ch));
+        set_end(end);
+        NFAGraph_add_node(&g, begin);
+        NFAGraph_add_node(&g, end);
+        NFANode_add_charset_edge(begin, end, a->u.ch);
         g.begin = begin;
         g.end = end;
     } else {
@@ -118,12 +224,55 @@ static NFAGraph NFA_atom2NFA(RE_Atom *a) {
     return g;
 }
 
+static NFAGraph NFAGraph_nclone(NFAGraph *g, int times) {
+    NFAGraph gcpy = NFAGraph_clone(g);
+    for (int i = 0; i < times; ++i) {
+        NFAGraph tmp = NFAGraph_clone(&gcpy);
+        NFA_cat(g, &tmp);
+    }
+    NFAGraph_clear(&gcpy);
+    NFAGraph_drop(&gcpy);
+    return *g;
+}
+
 static NFAGraph NFA_piece2NFA(RE_Piece *p) {
-    NFAGraph g = NFAGraph_new();
+    NFAGraph g = NFA_atom2NFA(p->a);
     if (p->max == 1 && p->min == 1) {
-        g = NFA_atom2NFA(p->a);
-    } else {
-        unimplemented("matchint times only support {1}");
+        // do nothing
+    } else if (p->max == -1 && p->min == 0) { // {0, inf}
+        NFANode_add_epsilon_edge(g.begin, g.end);
+        NFANode_add_epsilon_edge(g.end, g.begin);
+    } else if (p->max == -1) { // {n, inf}
+        // for {n, inf} like {3, inf}
+        // consider it as '(aaa)a*'
+        NFAGraph tail = NFAGraph_clone(&g);
+        NFANode_add_epsilon_edge(tail.begin, tail.end);
+        NFANode_add_epsilon_edge(tail.end, tail.begin);
+        g = NFAGraph_nclone(&g, p->min - 1);
+        NFA_cat(&g, &tail);
+    } else if (p->max == p->min) { // {n}
+        g = NFAGraph_nclone(&g, p->min - 1);
+    } else { // {n, m}
+        NFANode **begins = (NFANode **)RE_calloc(p->max - p->min, sizeof(NFANode *));
+        NFAGraph gcpy = NFAGraph_clone(&g);
+
+        for (int i = 1; i <= p->min - 1; ++i) {
+            NFAGraph tmp = NFAGraph_clone(&gcpy);
+            NFA_cat(&g, &tmp);
+        }
+        for (int i = p->min, j = 0; i <= p->max - 1; ++i, ++j) {
+            NFAGraph tmp = NFAGraph_clone(&gcpy);
+            begins[j] = tmp.begin;
+            NFA_cat(&g, &tmp);
+        }
+
+        for (int i = 0; i < p->max - p->min; ++i) {
+            NFANode_add_epsilon_edge(begins[i], g.end);
+        }
+
+        NFAGraph_clear(&gcpy);
+        NFAGraph_drop(&gcpy);
+        free(begins);
     }
     return g;
 }
@@ -133,79 +282,65 @@ static NFAGraph NFA_branch2NFA(RE_Branch *b) {
     for (int i = 1; i < b->num; ++i) {
         NFAGraph ng = NFA_piece2NFA(b->p[i]);
         g = NFA_cat(&g, &ng);
+        NFAGraph_merge(&g, &ng);
     }
     return g;
 }
 
-static NFAGraph NFA_re2NFA(RE_Node *n) {
+NFAGraph NFA_re2NFA(RE_Node *n) {
     NFAGraph *subgraphs = (NFAGraph *)RE_calloc(n->num, sizeof(NFAGraph));
     for (int i = 0; i < n->num; ++i) {
         subgraphs[i] = NFA_branch2NFA(n->b[i]);
     }
     NFAGraph g = NFA_or(subgraphs, n->num);
-    return g;
-}
-
-NFAGraph regex2NFA(RE_Node *re) {
-    NFAGraph g = NFAGraph_new();
-    g = NFA_re2NFA(re);
+    free(subgraphs);
     return g;
 }
 
 #ifdef DRAW_NFA
 
-#define last12bit(ptr) ((unsigned int)(unsigned long)(ptr) & 0xfff)
-
-static void draw_NFANode(FILE *f, NFANode *n) {
-    if (n == NULL || n->is_end || n->visited) {
-        return;
-    }
-
-    n->visited = true;
-    for (int j = 0; j < n->num; ++j) {
-        NFAEdge *e = n->u.edges[j];
-        fprintf(f, "    s_%x->s_%x [label=\"", last12bit(n), \
-                last12bit(e->next));
-        if (e->is_epsilon) {
-            fprintf(f, "ε\"];\n");
-        } else {
-            bool has_more = true;
-            int cnt = 0;
-            for (int i = 0; i < 256; ++i) {
-                if (e->ch[i]) {
-                    if (isgraph(i)) {
-                        if (strchr("\"", i)) {
-                            fprintf(f, "%c", '\\');
-                        }
-                        fprintf(f, "%c", i);
-                        cnt++;
-                        if (cnt > CHARSET_SHOW_MAX) {
-                            break;
-                        }
-                    } else {
-                        has_more = false;
-                    }
-                }
-            }
-            if (!has_more) {
-                fprintf(f, "...");
-            }
-            fprintf(f, "\"];\n");
-        }
-
-        draw_NFANode(f, e->next);
-    }
-}
-
 void draw_NFA(FILE *f, NFAGraph *g, char *regexp) {
     fprintf(f, "digraph NFA_Graph {\n");
-    fprintf(f, "    label=\"regexp = %s\"", regexp);
+    fprintf(f, "    label=\"regexp = %s\"\n", regexp);
     fprintf(f, "    labelloc=top;\n");
     fprintf(f, "    labeljust=left;\n");
-    fprintf(f, "    s_%x [shape=doublecircle]\n", last12bit(g->end));
+    fprintf(f, "    s%d [shape=doublecircle]\n", g->end->id);
     fprintf(f, "    s_start [style=invis]\n");
-    fprintf(f, "    s_start->s_%x [label=\"start\"]\n", last12bit(g->begin));
-    draw_NFANode(f, g->begin);
+    fprintf(f, "    s_start->s%d [label=\"start\"]\n", g->begin->id);
+//    draw_NFANode(f, g->begin);
+    for (int k = 0; k < g->num; ++k) {
+        NFANode *n = g->nodes[k];
+        for (int j = 0; j < n->num; ++j) {
+            NFAEdge *e = &n->edges[j];
+            fprintf(f, "    s%d->s%d [label=\"", n->id, e->next->id);
+            if (e->is_epsilon) {
+                fprintf(f, "ε\"];\n");
+            } else {
+                bool has_more = true;
+                int cnt = 0;
+                for (int i = 0; i < 256; ++i) {
+                    if (e->ch[i]) {
+                        if (isgraph(i)) {
+                            if (strchr("\"", i)) {
+                                fprintf(f, "%c", '\\');
+                            }
+                            fprintf(f, "%c", i);
+                            cnt++;
+                            if (cnt > CHARSET_SHOW_MAX) {
+                                break;
+                            }
+                        } else {
+                            has_more = false;
+                        }
+                    }
+                }
+                if (!has_more) {
+                    fprintf(f, "...");
+                }
+                fprintf(f, "\"];\n");
+            }
+        }
+    }
     fprintf(f, "}\n");
 }
 #endif

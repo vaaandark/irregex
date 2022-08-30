@@ -13,24 +13,30 @@ typedef struct {
 #define NFANODE_EDGE_INITIAL_SIZE 4
 
 typedef struct NFANode {
+    int id;
     bool is_end;
     int num;
     int size;
-    union {
-        NFANode **backs;
-        NFAEdge **edges;
-    } u; // when the node is the end one, store its pre
+    NFAEdge *edges;
 #ifdef DRAW_NFA
-    bool visited; // DFS
+    bool visited_on_draw; // DFS
 #endif
 } NFANode;
 
 typedef struct {
     NFANode *begin;
     NFANode *end;
+    NFANode **nodes; // internal use only
+    int num; // internal use only
+    int size; // internal use only
 } NFAGraph;
 
-extern NFAGraph regex2NFA(RE_Node *re);
+extern void NFAGraph_clear(NFAGraph *g);
+extern void NFAGraph_drop(NFAGraph *g);
+
+extern NFAGraph NFA_re2NFA(RE_Node *n);
+extern NFAGraph NFAGraph_clone(NFAGraph *g);
+#define regex2NFA(re) NFA_re2NFA(re)
 
 #ifdef DRAW_NFA
 #define CHARSET_SHOW_MAX 16

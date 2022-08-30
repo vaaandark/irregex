@@ -1,16 +1,14 @@
 #!/bin/bash
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: test.sh {regexp}"
+  echo "usage: draw.sh {regexp}"
   exit 1
 fi
 
-regexp=$1
+cd "$(dirname "$0")" || exit 1
+cd ../build/ || exit 1
+./re2tree "$1"
+./re2graph "$1"
+dot -Tsvg RE-tree.dot -o RE-tree.svg
+dot -Tsvg NFA-graph.dot -o NFA-graph.svg
 
-(
-  cd "$(dirname "$0")" || exit 1
-  cd ../build/ || exit 1
-  ./regex "$regexp"
-  dot -Tsvg relationship.dot -o relationship.svg
-  dot -Tsvg NFA.dot -o NFA.svg
-)
