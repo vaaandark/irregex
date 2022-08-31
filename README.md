@@ -1,6 +1,6 @@
 # irregex
 
-一个基本支持 ERE 语法的正则库，也可以生成 NFA图 和 re-branch-piece-atom 树，还可以用于词法分析。
+一个基本支持 ERE 语法的正则库，也可以生成 NFA 图 和 re-branch-piece-atom 树，还可以词法分析。
 
 ## 依赖
 
@@ -12,7 +12,9 @@ $ sudo dnf install graphviz # for Fedora or CentOS
 $ sudo pacman -S graphviz # for ArchLinux or Manjaro
 ```
 
-- 一个可以查看矢量图的图片浏览器(或者一个现代浏览器)。
+- 一个可以查看矢量图的图片浏览器（或者一个现代浏览器）。
+
+- 如果要对`irregex`进行高强度测试（见`./bench`），可以使用 [hyperfine](https://github.com/sharkdp/hyperfine)
 
 ## 构建
 
@@ -52,7 +54,7 @@ $ ./build/irregex 'a*az' aaaaaz
 aaaaaz
 ```
 
-可以使用`./scripts/test.sh`来测试，通过编辑该文件中如下位置添加测试集。
+可以使用`./tests/test.sh`来测试，通过编辑该文件中如下位置添加测试集。
 
 ```bash
 # run {regex} {str} {expected}
@@ -60,10 +62,10 @@ run 'a' 'a' 'a'
 run 'abcdefg' 'abcdefg' 'abcdefg'
 ```
 
-执行`./scripts/test.sh`
+执行`./tests/test.sh`
 
 ```console
-$ ./scripts/test.sh
+$ ./tests/test.sh
 8 SUCCESS
 0 FAILURE
 100% passed
@@ -73,19 +75,38 @@ $ ./scripts/test.sh
 
 **感谢 [jyi](https://github.com/jyi2ya) 提供的基于正则的 lex 处理程序`./src/lex.c`**
 
-可以通过对 C 语言文件的词法分析来测试该正则库，测试脚本为`./scripts/test_lex.sh`，它可以对`./src`目录下的所有文件进行词法分析，并输出测试结果。
+可以通过对 C 语言文件的词法分析来测试该正则库，测试脚本为`./tests/test_lex.sh`，它可以对`./src`目录下的所有文件进行词法分析，并输出测试结果。
+
+`./bench/lexer.c`是使用 POSIX `regex.h`的词法分析器，可以运行`./tests/cmp_lex.sh`进行正确性检验。
+
+**使用词法解析对正则库进行测试**
+
+可以使用`./bench/bench.sh`对分别使用 POSIX `regex.h`和`irregex.h`的 lexer 进行性能测试。
+
+由于 POSIX `regex.h`的正则支持捕获组，性能开销较大，所有我的丐版`irregex.h`在处理大数据时的运行速度是它的 **140** 多倍。
 
 ```console
-$ ./scripts/test_lex.sh
-11 SUCCESS
-0 FAILURE
-100% passed
+$ ./bench/bench.sh
+Benchmark 1: ./build/lex ./build/huge.c
+  Time (mean ± σ):     633.9 ms ±   4.6 ms    [User: 631.0 ms, System: 2.6 ms]
+  Range (min … max):   626.8 ms … 642.9 ms    10 runs
+
+Benchmark 2: ./build/posixre-lex ./build/huge.c
+  Time (mean ± σ):     92.903 s ±  2.319 s    [User: 92.886 s, System: 0.005 s]
+  Range (min … max):   89.286 s … 96.371 s    10 runs
+
+Summary
+  './build/lex ./huge.c' ran
+  146.56 ± 3.81 times faster than './build/posixre-lex ./huge.c'
+hyperfine --warmup 3 './build/lex ./build/huge.c' './build/posixre-lex ./build/huge.c'  1205.22s user 0.40s system 100% cpu 20:05.20 total
 ```
 
-如果要对单个 C 语言文件进行词法分析，可以直接使用`./build/lex`。
+测试文件是`./bench/huge.c`，它是由 Lua 全部源码合成的，大小达到 88k 。
+
+如果要对 C 语言文件进行词法分析，可以直接使用`./build/lex`。
 
 ```console
-$ ./scripts/test_lex.sh hello.c
+$ ./build/lex hello.c
 preprocessor command: [#include <stdio.h>]
 int: [int]
 identifier: [main]
@@ -111,12 +132,13 @@ semicolon: [;]
 braces: [}]
 ```
 
+
 ### RE2tree
 
 可以查看`./build/RE-tree.svg`文件，它包含了正则表达式编译的中间结果。
 
 ```console
-$ ./scripts/draw.sh {regexp}
+$ ./tests/draw.sh {regexp}
 $ for p in ./build/*.svg; do xdg-open $p; done
 ```
 

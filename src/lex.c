@@ -106,17 +106,12 @@ char *slurp(const char *filename) {
             }
             ungetc(peek, fp);
         }
-        if (cnt == bufsize) {
+        if (cnt == bufsize - 1) {
             bufsize = bufsize * 2 + 4;
             buf = realloc(buf, bufsize);
             assert(buf != NULL);
         }
         buf[cnt++] = ch;
-    }
-    if (cnt == bufsize) {
-        bufsize = bufsize * 2 + 4;
-        buf = realloc(buf, bufsize);
-        assert(buf != NULL);
     }
     buf[cnt++] = '\0';
 
@@ -153,10 +148,8 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        if (matched_item == -1)
-            printf("%s\n", pos);
-//        assert(matched_item != -1);
         if (matched_item == -1) {
+            printf("%s\n", pos);
             return 1;
         }
         tmp = pos[matched_len];
