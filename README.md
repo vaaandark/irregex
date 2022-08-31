@@ -26,6 +26,23 @@ $ make all
 
 ## 测试和使用
 
+### irregex.h
+
+`regex_compile`将正则表达式字符串编译为 NFA ，返回一个 NFA 的有向图。
+```c
+NFAGraph regex_compile(const char *regex);
+```
+
+`regex_execute`将字符串在 NFA 图上正则匹配
+```c
+int regex_execute(NFAGraph *g, const char *str);
+```
+
+`regex_free`释放掉 NFA 的图结构。
+```c
+void regex_free(NFAGraph *g);
+```
+
 ### irregex
 
 可以使用`irregex`来测试正则表达式的匹配。
@@ -118,6 +135,8 @@ $ for p in ./build/*.svg; do xdg-open $p; done
 ## 限制
 
 暂不支持锚点、反向引用、断言功能。
+
+由于设计的原因，对一些可以合并的 NFA 顶点（如 ab|ac 合并为 a(b|c)）没有进行优化。
 
 ## 参考
 
