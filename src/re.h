@@ -62,7 +62,7 @@ typedef struct RE_Node {
     int size;
 } RE_Node;
 
-extern RE_State *RES_new(char *str);
+extern RE_State *RES_new(const char *str);
 
 #define RES_drop(st) free(st)
 

@@ -1,10 +1,10 @@
 # irregex
 
-一个基本支持 ERE 语法的正则库（尚未完成，但可以生成 NFA图 和 re-branch-piece-atom 树）
+一个基本支持 ERE 语法的正则库，也可以生成 NFA图 和 re-branch-piece-atom 树
 
 ## 依赖
 
-- `graphviz` 用于画图
+- `graphviz` 用于画图。
 
 ```console
 $ sudo apt install graphviz # for Debian or Ubuntu
@@ -12,24 +12,50 @@ $ sudo dnf install graphviz # for Fedora or CentOS
 $ sudo pacman -S graphviz # for ArchLinux or Manjaro
 ```
 
-- 一个可以查看矢量图的图片浏览器(或者一个现代浏览器)
+- 一个可以查看矢量图的图片浏览器(或者一个现代浏览器)。
 
 ## 构建
 
 ```console
+$ cd irregex
+$ mkdir build
 $ make all
 ```
 
-会在`./build`目录生成两个可执行文件`re2tree`和`re2graph`
+会在`./build`目录生成三个可执行文件`re2tree`、`re2graph`和`irregex`。
 
-## 使用
+## 测试和使用
+
+可以使用`irregex`来测试正则表达式的匹配。
+
+```console
+$ ./build/irregex 'a*az' aaaaaz
+aaaaaz
+```
+
+可以使用`./scripts/test.sh`来测试，通过编辑该文件中如下位置添加测试集。
+
+```bash
+# run {regex} {str} {expected}
+run 'a' 'a' 'a'
+run 'abcdefg' 'abcdefg' 'abcdefg'
+```
+
+执行`./scripts/test.sh`
+
+```console
+$ ./scripts/test.sh
+8 SUCCESS
+0 FAILURE
+100% passed
+```
+
+可以查看`./build/RE-tree.svg`文件，它包含了正则表达式编译的中间结果。
 
 ```console
 $ ./scripts/draw.sh {regexp}
 $ for p in ./build/*.svg; do xdg-open $p; done
 ```
-
-可以查看`./build/RE-tree.svg`文件，它包含了正则表达式编译的中间结果。
 
 ![regex-example](./images/RE-tree.svg)
 
@@ -41,17 +67,10 @@ $ for p in ./build/*.svg; do xdg-open $p; done
 
 ![regex-example](./images/NFA-graph.svg)
 
-## 缺陷
+## 限制
 
-~~疯狂内存泄漏，暂时懒得管了。~~
+暂不支持锚点、反向引用、断言功能。
 
-~~现在使用了很丑陋的方式解决了内存泄漏问题。~~
+## 参考
 
-~~现在正着手处理内存泄漏问题，还有点漏...~~
-
-较为优雅地解决了内存泄漏问题。
-
-发现没有 ε 边处理时会非常不方便，所以又请回来了 ε 。
-
-## 文档编写中...
-
+[Implementing Regular Expressions](https://swtch.com/~rsc/regexp/)

@@ -18,13 +18,13 @@ void *RE_realloc(void *ptr, size_t nitems, size_t size) {
 
 const char *meta_chars="^$*+?{}()|";
 
-RE_State *RES_new(char *str) {
+RE_State *RES_new(const char *str) {
     RE_State *st = (RE_State *)alloc(sizeof(RE_State));
     if (!st) {
         panic("RE_State is empty");
     }
     strcpy(st->regstr, str);
-    st->str_read_pos = str;
+    st->str_read_pos = st->regstr;
     st->has_unget = false;
     return st;
 }
