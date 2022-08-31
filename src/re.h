@@ -9,8 +9,6 @@ extern void *RE_realloc(void *ptr, size_t nitems, size_t size);
 
 #define alloc(size) RE_calloc(1, (size_t)size)
 
-#define REGSTR_SIZE 128
-
 typedef enum {
     CHARSET, META, UNKNOWN, END, BOUND
 } TokenType;
@@ -25,7 +23,7 @@ typedef struct {
 } RE_Token;
 
 typedef struct {
-    char regstr[REGSTR_SIZE];
+    char regstr[512];
     char *str_read_pos;
     bool has_unget;
     RE_Token unget;

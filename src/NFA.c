@@ -248,12 +248,17 @@ static NFAGraph NFA_piece2NFA(RE_Piece *p) {
         NFAGraph tail = NFAGraph_clone(&g);
         NFANode_add_epsilon_edge(tail.begin, tail.end);
         NFANode_add_epsilon_edge(tail.end, tail.begin);
-        g = NFAGraph_nclone(&g, p->min - 1);
+        if (p->min > 1) {
+            g = NFAGraph_nclone(&g, p->min - 1);
+        }
         NFA_cat(&g, &tail);
     } else if (p->max == p->min) { // {n}
         g = NFAGraph_nclone(&g, p->min - 1);
+    } else if (p->max == 1 && p->min == 0) { // {0, 1} ?
+        NFANode_add_epsilon_edge(g.begin, g.end);
     } else { // {n, m}
-        NFANode **begins = (NFANode **)RE_calloc(p->max - p->min, sizeof(NFANode *));
+        NFANode **begins = (NFANode **)RE_calloc(p->max - p->min, \
+                sizeof(NFANode *));
         NFAGraph gcpy = NFAGraph_clone(&g);
 
         for (int i = 1; i <= p->min - 1; ++i) {

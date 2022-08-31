@@ -19,7 +19,7 @@ void draw_NFA(FILE *f, NFAGraph *g, char *regexp) {
             NFAEdge *e = &n->edges[j];
             fprintf(f, "    s%d->s%d [label=\"", n->id, e->next->id);
             if (e->is_epsilon) {
-                fprintf(f, "ε\"];\n");
+                fprintf(f, "e\"];\n");
             } else {
                 bool has_more = true;
                 int cnt = 0;

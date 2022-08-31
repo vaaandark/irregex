@@ -15,10 +15,6 @@ static int regex_execute_rec(NFANode *n, const char *pos, bool *matched, \
         *matched = true;
     }
 
-    if (*pos == '\0') {
-        return 0;
-    }
-
     // non-trans circle exists
     if (last_visited_pos[n->id] == pos) {
         return 0;
@@ -48,10 +44,7 @@ int regex_execute(NFAGraph *g, const char *str) {
             sizeof(const char *));
     int len = regex_execute_rec(g->begin, str, &matched, last_visited_pos);
     free(last_visited_pos);
-    if (!matched) {
-        return -1;
-    }
-    return len;
+    return matched ? len : -1;
 }
 
 void regex_free(NFAGraph *g) {
