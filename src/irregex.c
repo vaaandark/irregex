@@ -9,7 +9,7 @@ NFAGraph regex_compile(const char *regex) {
     return g;
 }
 
-static int regex_execute_rec(NFANode *n, const char *pos, bool *matched, \
+static int regex_execute_rec(NFANode *n, const char *pos, bool *matched,
         const char **last_visited_pos) {
     if (n->is_end) {
         *matched = true;
@@ -28,7 +28,7 @@ static int regex_execute_rec(NFANode *n, const char *pos, bool *matched, \
             res = regex_execute_rec(e->next, pos, matched, last_visited_pos);
         } else {
             if (e->ch[(int)*pos]) {
-                res = 1 + regex_execute_rec(e->next, pos + 1, matched, \
+                res = 1 + regex_execute_rec(e->next, pos + 1, matched,
                         last_visited_pos);
             }
         }
@@ -40,7 +40,7 @@ static int regex_execute_rec(NFANode *n, const char *pos, bool *matched, \
 
 int regex_execute(NFAGraph *g, const char *str) {
     bool matched = false;
-    const char **last_visited_pos = (const char **)RE_calloc(g->num, \
+    const char **last_visited_pos = (const char **)RE_calloc(g->num,
             sizeof(const char *));
     int len = regex_execute_rec(g->begin, str, &matched, last_visited_pos);
     free(last_visited_pos);

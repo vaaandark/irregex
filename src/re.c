@@ -30,8 +30,9 @@ RE_State *RES_new(const char *str) {
 }
 
 static RE_Token Token_new(void) {
-    RE_Token token;
-    token.t = UNKNOWN;
+    RE_Token token = {
+        .t = UNKNOWN
+    };
     memset(&token.u, 0, 256);
     return token;
 }
@@ -76,7 +77,8 @@ void Re_drop(RE_Node *n) {
 
 static RE_Branch *Branch_resize(RE_Branch *branch) {
     branch->size = branch->size * 2 + 4;
-    branch->p = (RE_Piece **)RE_realloc(branch->p, branch->size, sizeof(RE_Piece *));
+    branch->p = (RE_Piece **)RE_realloc(branch->p, branch->size,
+            sizeof(RE_Piece *));
     return branch;
 }
 
@@ -90,26 +92,27 @@ static RE_Node *Node_new(void) {
 
 static RE_Node *Node_resize(RE_Node *node) {
     node->size = node->size * 2 + 4;
-    node->b = (RE_Branch **)RE_realloc(node->b, node->size, sizeof(RE_Branch *));
+    node->b = (RE_Branch **)RE_realloc(node->b, node->size,
+            sizeof(RE_Branch *));
     return node;
 }
 
-void fill_by_range(int begin, int end, bool *ch, bool fill) {
+inline void fill_by_range(int begin, int end, bool *ch, bool fill) {
     for (int i = begin; i <= end; ++i) {
         ch[i] = fill;
     }
 }
-#
 
-static void fill_by_string(char *s, bool *ch, bool fill) {
-    while (*s) {
+static inline void fill_by_string(char *s, bool *ch, bool fill) {
+    while (*s != '\0') {
         ch[(int)*s] = fill;
         s++;
     }
 }
 
-#define fill_by_char(c, ch, fill) \
-        ch[(int)c] = fill
+static inline void fill_by_char(int c, bool *ch, bool fill) {
+    ch[c] = fill;
+}
 
 static RE_Token get_token_escaped(RE_State *st) {
     RE_Token res = Token_new();
@@ -185,9 +188,12 @@ static RE_Token get_token_escaped(RE_State *st) {
     return res;
 }
 
-#define cmp_class(s, class_name, shift) \
-    (!strncmp(s, class_name, strlen(class_name)) && \
-     (shift = strlen(class_name)) > 0)
+static inline bool cmp_class(const char *s, const char *class_name,
+        int *shift) {
+    int len = strlen(class_name);
+    return (strncmp(s, class_name, len) == 0 &&
+            (*shift = len) > 0);
+}
 
 // charset is complex and I am lazy
 static RE_Token get_token_charset(RE_State *st) {
@@ -220,7 +226,7 @@ static RE_Token get_token_charset(RE_State *st) {
             break;
         case '-':
             if (st->str_read_pos[1] != ']') {
-                fill_by_range(st->str_read_pos[-1], st->str_read_pos[1], \
+                fill_by_range(st->str_read_pos[-1], st->str_read_pos[1],
                         res.u.ch, fill);
                 st->str_read_pos++;
             } else { // ']' can be the last character in bracket
@@ -237,42 +243,42 @@ static RE_Token get_token_charset(RE_State *st) {
             // print, punct, space, upper, word, xdigit
             st->str_read_pos += 2;
             int shift = 0;
-            if (cmp_class(st->str_read_pos, "ascii", shift)) {
+            if (cmp_class(st->str_read_pos, "ascii", &shift)) {
                 fill_by_range(0, 255, res.u.ch, fill);
-            } else if (cmp_class(st->str_read_pos, "alnum", shift)) {
+            } else if (cmp_class(st->str_read_pos, "alnum", &shift)) {
                 fill_by_range((int)'a', (int)'z', res.u.ch, fill);
                 fill_by_range((int)'A', (int)'Z', res.u.ch, fill);
                 fill_by_range((int)'0', (int)'9', res.u.ch, fill);
-            } else if (cmp_class(st->str_read_pos, "alpha", shift)) {
+            } else if (cmp_class(st->str_read_pos, "alpha", &shift)) {
                 fill_by_range((int)'a', (int)'z', res.u.ch, fill);
                 fill_by_range((int)'A', (int)'Z', res.u.ch, fill);
-            } else if (cmp_class(st->str_read_pos, "blank", shift)) {
+            } else if (cmp_class(st->str_read_pos, "blank", &shift)) {
                 res.u.ch[(int)' '] = fill;
                 res.u.ch[(int)'\t'] = fill;
-            } else if (cmp_class(st->str_read_pos, "cntrl", shift)) {
+            } else if (cmp_class(st->str_read_pos, "cntrl", &shift)) {
                 fill_by_range((int)'\x00', (int)'\x1F', res.u.ch, fill);
                 res.u.ch[(int)'\x7F'] = fill;
-            } else if (cmp_class(st->str_read_pos, "digit", shift)) {
+            } else if (cmp_class(st->str_read_pos, "digit", &shift)) {
                 fill_by_range((int)'0', (int)'9', res.u.ch, fill);
-            } else if (cmp_class(st->str_read_pos, "graph", shift)) {
+            } else if (cmp_class(st->str_read_pos, "graph", &shift)) {
                 fill_by_range((int)'\x21', (int)'\x7E', res.u.ch, fill);
-            } else if (cmp_class(st->str_read_pos, "lower", shift)) {
+            } else if (cmp_class(st->str_read_pos, "lower", &shift)) {
                 fill_by_range((int)'a', (int)'z', res.u.ch, fill);
-            } else if (cmp_class(st->str_read_pos, "print", shift)) {
+            } else if (cmp_class(st->str_read_pos, "print", &shift)) {
                 fill_by_range((int)'\x20', (int)'\x7E', res.u.ch, fill);
-            } else if (cmp_class(st->str_read_pos, "punct", shift)) {
-                fill_by_string("][!\"#$%&'()*+,./:;<=>?@\\^_`{|}~-", res.u.ch, \
+            } else if (cmp_class(st->str_read_pos, "punct", &shift)) {
+                fill_by_string("][!\"#$%&'()*+,./:;<=>?@\\^_`{|}~-", res.u.ch,
                         fill);
-            } else if (cmp_class(st->str_read_pos, "space", shift)) {
+            } else if (cmp_class(st->str_read_pos, "space", &shift)) {
                 fill_by_string(" \t\r\n\v\f", res.u.ch, fill);
-            } else if (cmp_class(st->str_read_pos, "upper", shift)) {
+            } else if (cmp_class(st->str_read_pos, "upper", &shift)) {
                 fill_by_range((int)'A', (int)'Z', res.u.ch, fill);
-            } else if (cmp_class(st->str_read_pos, "word", shift)) {
+            } else if (cmp_class(st->str_read_pos, "word", &shift)) {
                 fill_by_range((int)'a', (int)'z', res.u.ch, fill);
                 fill_by_range((int)'A', (int)'Z', res.u.ch, fill);
                 fill_by_range((int)'0', (int)'9', res.u.ch, fill);
                 res.u.ch[(int)'-'] = fill;
-            } else if (cmp_class(st->str_read_pos, "xdigit", shift)) {
+            } else if (cmp_class(st->str_read_pos, "xdigit", &shift)) {
                 fill_by_range((int)'a', (int)'f', res.u.ch, fill);
                 fill_by_range((int)'A', (int)'F', res.u.ch, fill);
                 fill_by_range((int)'0', (int)'9', res.u.ch, fill);
@@ -410,9 +416,10 @@ static RE_Token get_token(RE_State *st) {
     return res;
 }
 
-#define unget_token(st, t) \
-    st->unget = t; \
+static inline void unget_token(RE_State *st, RE_Token t) {
+    st->unget = t;
     st->has_unget = true;
+}
 
 static RE_Atom *parse_atom(RE_State *st) {
     RE_Atom *res = alloc(sizeof(RE_Atom));
@@ -474,8 +481,8 @@ static RE_Branch *parse_branch(RE_State *st) {
         RE_Token peek = get_token(st);
 
         // jyi's dialect: the outer ')' can be omited
-        if (peek.t == END \
-                || (peek.t == META && peek.u.metachar == ')') \
+        if (peek.t == END
+                || (peek.t == META && peek.u.metachar == ')')
                 || (peek.t == META && peek.u.metachar == '|')) {
             unget_token(st, peek);
             break;

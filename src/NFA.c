@@ -3,18 +3,13 @@
 #define NFANODE_INITIAL_SIZE 64
 
 static NFANode *NFANode_nnew(int size) {
-    size = size > NFANODE_EDGE_INITIAL_SIZE ? \
+    size = size > NFANODE_EDGE_INITIAL_SIZE ?
                 size : NFANODE_EDGE_INITIAL_SIZE;
     NFANode *n = (NFANode *)alloc(sizeof(NFANode));
     n->is_end = false;
     n->size = size;
     n->num = 0;
     n->edges = (NFAEdge *)RE_calloc(n->size, sizeof(NFAEdge));
-
-#ifdef DRAW_NFA
-    n->visited_on_draw = false;
-#endif
-
     return n;
 }
 
@@ -27,7 +22,9 @@ static void NFANode_resize(NFANode *n) {
     n->edges = (NFAEdge *)RE_realloc(n->edges, n->size, sizeof(NFAEdge));
 }
 
-#define NFAEdge_drop(e) free(e)
+static inline void NFAEdge_drop(NFAEdge *e) {
+    free(e);
+}
 
 void NFANode_drop(NFANode *n) {
     if (n->edges != NULL && n->size != 0) {
@@ -38,14 +35,13 @@ void NFANode_drop(NFANode *n) {
 
 #define NFAGRAPH_INITIAL_SIZE 256
 NFAGraph NFAGraph_nnew(int size) {
-    NFAGraph g = {
+    return (NFAGraph) {
         .begin = NULL,
         .end = NULL,
         .size = size,
         .nodes = (NFANode **)RE_calloc(size, sizeof(NFANode *)),
         .num = 0
     };
-    return g;
 }
 
 NFAGraph NFAGraph_new(void) {
@@ -156,7 +152,7 @@ static void NFAGraph_merge(NFAGraph *dst, NFAGraph *src) {
     int ns = src->num;
     if (nd + ns > dst->size) {
         dst->size = (dst->num + src->num) * 2 + 4;
-        dst->nodes = (NFANode **)RE_realloc(dst->nodes, dst->size, \
+        dst->nodes = (NFANode **)RE_realloc(dst->nodes, dst->size,
                 sizeof(NFANode *));
     }
     for (int i = nd, j = 0; j < ns; ++i, ++j) {
@@ -167,14 +163,16 @@ static void NFAGraph_merge(NFAGraph *dst, NFAGraph *src) {
     NFAGraph_drop(src);
 }
 
-#define not_end_any_longer(n) \
+static inline void unset_end(NFANode *n) {
     n->is_end = false;
+}
 
-#define set_end(n) \
-    n->is_end = true
+static inline void set_end(NFANode *n) {
+    n->is_end = true;
+}
 
 static NFAGraph NFA_cat(NFAGraph *front, NFAGraph *back) {
-    not_end_any_longer(front->end);
+    unset_end(front->end);
     NFANode_add_epsilon_edge(front->end, back->begin);
     front->end = back->end;
     NFAGraph_merge(front, back);
@@ -195,7 +193,7 @@ static NFAGraph NFA_or(NFAGraph *subgraphs, int ngraphs) {
     set_end(end);
     for (int i = 0; i < ngraphs; ++i) {
         NFANode_add_epsilon_edge(begin, subgraphs[i].begin);
-        not_end_any_longer(subgraphs[i].end);
+        unset_end(subgraphs[i].end);
         NFANode_add_epsilon_edge(subgraphs[i].end, end);
         NFAGraph_merge(&g, &subgraphs[i]);
     }
@@ -257,7 +255,7 @@ static NFAGraph NFA_piece2NFA(RE_Piece *p) {
     } else if (p->max == 1 && p->min == 0) { // {0, 1} ?
         NFANode_add_epsilon_edge(g.begin, g.end);
     } else { // {n, m}
-        NFANode **begins = (NFANode **)RE_calloc(p->max - p->min, \
+        NFANode **begins = (NFANode **)RE_calloc(p->max - p->min,
                 sizeof(NFANode *));
         NFAGraph gcpy = NFAGraph_clone(&g);
 

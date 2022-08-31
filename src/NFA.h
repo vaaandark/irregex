@@ -18,9 +18,6 @@ typedef struct NFANode {
     int num;
     int size;
     NFAEdge *edges;
-#ifdef DRAW_NFA
-    bool visited_on_draw; // DFS
-#endif
 } NFANode;
 
 typedef struct {

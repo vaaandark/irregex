@@ -1,6 +1,29 @@
 #include "NFA.h"
 
-#ifdef DRAW_NFA
+void print_charset(FILE *f, bool *ch) {
+    bool has_more = true;
+    int cnt = 0;
+    for (int i = 0; i < 256; ++i) {
+        if (ch[i]) {
+            if (isgraph(i)) {
+                if (strchr("\"", i)) {
+                    fprintf(f, "%c", '\\');
+                }
+                fprintf(f, "%c", i);
+                cnt++;
+                if (cnt > CHARSET_SHOW_MAX) {
+                    break;
+                }
+            } else {
+                has_more = false;
+            }
+        }
+    }
+    if (!has_more) {
+        fprintf(f, "...");
+    }
+    fprintf(f, "\"];\n");
+}
 
 #define CHARSET_SHOW_MAX 16
 
@@ -19,36 +42,14 @@ void draw_NFA(FILE *f, NFAGraph *g, char *regexp) {
             NFAEdge *e = &n->edges[j];
             fprintf(f, "    s%d->s%d [label=\"", n->id, e->next->id);
             if (e->is_epsilon) {
-                fprintf(f, "e\"];\n");
+                fprintf(f, "ε\"];\n");
             } else {
-                bool has_more = true;
-                int cnt = 0;
-                for (int i = 0; i < 256; ++i) {
-                    if (e->ch[i]) {
-                        if (isgraph(i)) {
-                            if (strchr("\"", i)) {
-                                fprintf(f, "%c", '\\');
-                            }
-                            fprintf(f, "%c", i);
-                            cnt++;
-                            if (cnt > CHARSET_SHOW_MAX) {
-                                break;
-                            }
-                        } else {
-                            has_more = false;
-                        }
-                    }
-                }
-                if (!has_more) {
-                    fprintf(f, "...");
-                }
-                fprintf(f, "\"];\n");
+                print_charset(f, e->ch);
             }
         }
     }
     fprintf(f, "}\n");
 }
-#endif
 
 int main(int argc, char *argv[]) {
     assert(argc == 2);
@@ -59,7 +60,6 @@ int main(int argc, char *argv[]) {
     NFAGraph g = regex2NFA(re);
     Re_drop(re);
 
-#ifdef DRAW_NFA
     puts("\033[1;032mregex:\033[0m generate .dot file for NFA GRAPH...");
     FILE *f = fopen("./NFA-graph.dot", "w");
     draw_NFA(f, &g, argv[1]);
@@ -67,7 +67,6 @@ int main(int argc, char *argv[]) {
     puts("OK");
     puts(".dot file is saved at ./NFA-graph.dot");
     puts("");
-#endif
 
     NFAGraph_clear(&g);
     NFAGraph_drop(&g);
