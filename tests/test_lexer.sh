@@ -8,7 +8,7 @@ failure=0
 
 run() {
   code="$1"
-  if ../build/lex "$code" > /dev/null; then
+  if ../build/lexer "$code" > /dev/null; then
     ((success++))
   else
     ((failure++))

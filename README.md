@@ -24,7 +24,7 @@ $ mkdir build
 $ make all
 ```
 
-会在`./build`目录生成三个可执行文件`re2tree`、`re2graph`、`lex`和`irregex`。
+会在`./build`目录生成三个可执行文件`re2tree`、`re2graph`、`lexer`和`irregex`。
 
 ## 测试和使用
 
@@ -71,13 +71,13 @@ $ ./tests/test.sh
 100% passed
 ```
 
-### lex
+### lexer
 
-**感谢 [jyi](https://github.com/jyi2ya) 提供的基于正则的 lex 处理程序`./src/lex.c`**
+**感谢 [jyi](https://github.com/jyi2ya) 提供的基于正则的 lexer 处理程序`./src/lexer.c`**
 
-可以通过对 C 语言文件的词法分析来测试该正则库，测试脚本为`./tests/test_lex.sh`，它可以对`./src`目录下的所有文件进行词法分析，并输出测试结果。
+可以通过对 C 语言文件的词法分析来测试该正则库，测试脚本为`./tests/test_lexer.sh`，它可以对`./src`目录下的所有文件进行词法分析，并输出测试结果。
 
-`./bench/lexer.c`是使用 POSIX `regex.h`的词法分析器，可以运行`./tests/cmp_lex.sh`进行正确性检验。
+`./bench/lexer.c`是使用 POSIX `regex.h`的词法分析器，可以运行`./tests/cmp_lexer.sh`进行正确性检验。
 
 **使用词法解析对正则库进行测试**
 
@@ -87,26 +87,26 @@ $ ./tests/test.sh
 
 ```console
 $ ./bench/bench.sh
-Benchmark 1: ./build/lex ./build/huge.c
+Benchmark 1: ./build/lexer ./build/huge.c
   Time (mean ± σ):     633.9 ms ±   4.6 ms    [User: 631.0 ms, System: 2.6 ms]
   Range (min … max):   626.8 ms … 642.9 ms    10 runs
 
-Benchmark 2: ./build/posixre-lex ./build/huge.c
+Benchmark 2: ./build/posixre-lexer ./build/huge.c
   Time (mean ± σ):     92.903 s ±  2.319 s    [User: 92.886 s, System: 0.005 s]
   Range (min … max):   89.286 s … 96.371 s    10 runs
 
 Summary
-  './build/lex ./huge.c' ran
-  146.56 ± 3.81 times faster than './build/posixre-lex ./huge.c'
-hyperfine --warmup 3 './build/lex ./build/huge.c' './build/posixre-lex ./build/huge.c'  1205.22s user 0.40s system 100% cpu 20:05.20 total
+  './build/lexer ./huge.c' ran
+  146.56 ± 3.81 times faster than './build/posixre-lexer ./huge.c'
+hyperfine --warmup 3 './build/lexer ./build/huge.c' './build/posixre-lexer ./build/huge.c'  1205.22s user 0.40s system 100% cpu 20:05.20 total
 ```
 
 测试文件是`./bench/huge.c`，它是由 Lua 全部源码合成的，大小达到 88k 。
 
-如果要对 C 语言文件进行词法分析，可以直接使用`./build/lex`。
+如果要对 C 语言文件进行词法分析，可以直接使用`./build/lexer`。
 
 ```console
-$ ./build/lex hello.c
+$ ./build/lexer hello.c
 preprocessor command: [#include <stdio.h>]
 int: [int]
 identifier: [main]
