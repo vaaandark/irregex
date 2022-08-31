@@ -38,9 +38,4 @@ extern NFAGraph NFA_re2NFA(RE_Node *n);
 extern NFAGraph NFAGraph_clone(NFAGraph *g);
 #define regex2NFA(re) NFA_re2NFA(re)
 
-#ifdef DRAW_NFA
-#define CHARSET_SHOW_MAX 16
-extern void draw_NFA(FILE *f, NFAGraph *g, char *regexp);
-#endif
-
 #endif
