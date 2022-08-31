@@ -1,6 +1,6 @@
 CC=gcc
 #SANITIZE=-fsanitize=address
-CFLAGS=-Wall -Wextra -Werror -Wshadow $(SANITIZE) -g -O0
+CFLAGS=-Wall -Wextra -Werror -Wshadow $(SANITIZE) -g -O2
 SOURCEDIR=src
 BUILDDIR=build
 OBJECTS=$(BUILDDIR)/re.o $(BUILDDIR)/NFA.o $(BUILDDIR)/irregex.o
