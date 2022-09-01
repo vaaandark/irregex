@@ -27,7 +27,7 @@ static int regex_execute_rec(NFANode *n, const char *pos, bool *matched,
         if (e->is_epsilon) {
             res = regex_execute_rec(e->next, pos, matched, last_visited_pos);
         } else {
-            if (e->ch[(int)*pos]) {
+            if (e->ch[((int)*pos + 256) % 256]) {
                 res = 1 + regex_execute_rec(e->next, pos + 1, matched,
                         last_visited_pos);
             }
