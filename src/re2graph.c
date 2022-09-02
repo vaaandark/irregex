@@ -1,5 +1,7 @@
 #include "NFA.h"
 
+#define CHARSET_SHOW_MAX 16
+
 void print_charset(FILE *f, bool *ch) {
     bool has_more = true;
     int cnt = 0;
@@ -24,8 +26,6 @@ void print_charset(FILE *f, bool *ch) {
     }
     fprintf(f, "\"];\n");
 }
-
-#define CHARSET_SHOW_MAX 16
 
 void draw_NFA(FILE *f, NFAGraph *g, char *regexp) {
     fprintf(f, "digraph NFA_Graph {\n");

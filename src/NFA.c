@@ -22,10 +22,6 @@ static void NFANode_resize(NFANode *n) {
     n->edges = (NFAEdge *)RE_realloc(n->edges, n->size, sizeof(NFAEdge));
 }
 
-static inline void NFAEdge_drop(NFAEdge *e) {
-    free(e);
-}
-
 void NFANode_drop(NFANode *n) {
     if (n->edges != NULL && n->size != 0) {
         free(n->edges);

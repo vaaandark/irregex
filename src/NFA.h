@@ -3,11 +3,10 @@
 
 #include "re.h"
 
-typedef struct NFANode NFANode;
 typedef struct {
     bool is_epsilon;
     bool ch[256];
-    NFANode *next;
+    struct NFANode *next;
 } NFAEdge;
 
 #define NFANODE_EDGE_INITIAL_SIZE 4

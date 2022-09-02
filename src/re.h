@@ -29,12 +29,10 @@ typedef struct {
     RE_Token unget;
 } RE_State;
 
-typedef struct RE_Node RE_Node;
-
 typedef struct {
     bool is_simple_atom;
     union {
-        RE_Node *re;
+        struct RE_Node *re;
         bool ch[256];
     } u;
 } RE_Atom;

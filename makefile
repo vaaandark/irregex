@@ -1,4 +1,4 @@
-CC=gcc
+CC=clang
 #SANITIZE=-fsanitize=address
 CFLAGS=-std=c99 -Wall -Wextra -Werror -Wshadow $(SANITIZE) -g -O2
 SOURCEDIR=src
