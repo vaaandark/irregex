@@ -24,17 +24,20 @@ static int regex_execute_rec(NFANode *n, const char *pos, bool *matched,
     for (int i = 0; i < n->num; ++i) {
         NFAEdge *e = &n->edges[i];
         last_visited_pos[n->id] = pos;
+        bool this_matched = false;
         if (e->is_epsilon) {
-            res = regex_execute_rec(e->next, pos, matched, last_visited_pos);
+            res = regex_execute_rec(e->next, pos, &this_matched, last_visited_pos);
         } else {
             if (e->ch[((int)*pos + 256) % 256]) {
-                res = 1 + regex_execute_rec(e->next, pos + 1, matched,
+                res = 1 + regex_execute_rec(e->next, pos + 1, &this_matched,
                         last_visited_pos);
             }
         }
-        len = len > res ? len : res;
+        if (this_matched) {
+            *matched = true;
+            len = len > res ? len : res;
+        }
     }
-
     return len;
 }
 
