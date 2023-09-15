@@ -11,26 +11,26 @@ all: $(OBJECTS) $(BUILDDIR)/main.o $(BUILDDIR)/re2tree.o $(BUILDDIR)/re2graph.o 
 	$(CC) $(CFLAGS) $(OBJECTS) $(BUILDDIR)/re2graph.o -o $(BUILDDIR)/re2graph
 	$(CC) $(CFLAGS) $(OBJECTS) $(BUILDDIR)/lexer.o -o $(BUILDDIR)/lexer
 
-$(BUILDDIR)/re.o: $(SOURCEDIR)/def.h
-	$(CC) $(CFLAGS) -c $(SOURCEDIR)/re.c -o $(BUILDDIR)/re.o
+$(BUILDDIR)/re.o: $(SOURCEDIR)/re.c $(SOURCEDIR)/def.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/NFA.o: $(SOURCEDIR)/re.h
-	$(CC) $(CFLAGS) -c $(SOURCEDIR)/NFA.c -o $(BUILDDIR)/NFA.o
+$(BUILDDIR)/NFA.o: $(SOURCEDIR)/NFA.c $(SOURCEDIR)/re.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/irregex.o: $(SOURCEDIR)/NFA.h
-	$(CC) $(CFLAGS) -c $(SOURCEDIR)/irregex.c -o $(BUILDDIR)/irregex.o
+$(BUILDDIR)/irregex.o: $(SOURCEDIR)/irregex.c $(SOURCEDIR)/NFA.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/main.o: $(SOURCEDIR)/irregex.h
-	$(CC) $(CFLAGS) -c $(SOURCEDIR)/main.c -o $(BUILDDIR)/main.o
+$(BUILDDIR)/main.o: $(SOURCEDIR)/main.c $(SOURCEDIR)/irregex.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/re2tree.o: $(SOURCEDIR)/NFA.h
-	$(CC) $(CFLAGS) -c $(SOURCEDIR)/re2tree.c -o $(BUILDDIR)/re2tree.o
+$(BUILDDIR)/re2tree.o: $(SOURCEDIR)/re2tree.c $(SOURCEDIR)/NFA.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/re2graph.o: $(SOURCEDIR)/NFA.h
-	$(CC) $(CFLAGS) -c $(SOURCEDIR)/re2graph.c -o $(BUILDDIR)/re2graph.o
+$(BUILDDIR)/re2graph.o: $(SOURCEDIR)/re2graph.c $(SOURCEDIR)/NFA.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILDDIR)/lexer.o: $(SOURCEDIR)/irregex.h
-	$(CC) $(CFLAGS) -c $(SOURCEDIR)/lexer.c -o $(BUILDDIR)/lexer.o
+$(BUILDDIR)/lexer.o: $(SOURCEDIR)/lexer.c $(SOURCEDIR)/irregex.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: clean
 clean:
